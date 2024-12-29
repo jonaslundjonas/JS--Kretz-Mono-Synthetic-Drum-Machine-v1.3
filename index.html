@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kretz Mono Synthetic Drum Machine v1.3</title>
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.min.css"
+    rel="stylesheet"
+  />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.min.js"></script>
+  <style>
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      font-family: "Roboto", sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .instructions {
+      background-color: #1E1E1E;
+      padding: 20px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .top-button-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .control-group {
+      background-color: #1E1E1E;
+      padding: 20px;
+      border-radius: 4px;
+    }
+    .visualization {
+      background-color: #1E1E1E;
+      padding: 20px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    canvas {
+      width: 100%;
+      height: 200px;
+      background-color: #2E2E2E;
+      border-radius: 4px;
+    }
+    .slider-container {
+      margin: 10px 0;
+    }
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+      align-items: center;
+    }
+    .slider-label span {
+      margin-right: 6px;
+    }
+    .slider-label input[type="number"] {
+      width: 70px;
+      margin-left: 10px;
+      background: #2F2F2F;
+      color: #FFF;
+      border: 1px solid #444;
+      border-radius: 3px;
+      padding: 4px;
+    }
+    input[type="range"] {
+      width: 100%;
+      background: #424242;
+    }
+    select {
+      width: 100%;
+      padding: 8px;
+      background-color: #424242;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #BB86FC;
+      color: #000000;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #9965F4;
+    }
+    .footer {
+      text-align: right;
+      margin-top: 20px;
+      color: #888888;
+    }
+    .normalize-container {
+      margin-top: 15px;
+    }
+    .sequencer-container {
+      background-color: #1E1E1E;
+      padding: 20px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .sequence-steps {
+      display: grid;
+      grid-template-columns: repeat(32, 1fr);
+      gap: 5px;
+      margin-top: 10px;
+    }
+    .step {
+      cursor: pointer;
+      background-color: #333;
+      color: #FFF;
+      text-align: center;
+      padding: 5px;
+      border: 1px solid #666;
+      border-radius: 4px;
+      user-select: none;
+      position: relative;
+      min-height: 35px;
+    }
+    .step.active {
+      background-color: #BB86FC;
+      color: #000;
+    }
+    .step:hover {
+      border-color: #BB86FC;
+    }
+    .step.disabled {
+      background-color: #222 !important;
+      border-color: #444 !important;
+      color: #555 !important;
+      pointer-events: none;
+    }
+    .step.playing {
+      outline: 2px solid #FFF;
+      outline-offset: -2px;
+    }
+    .velocity-value {
+      font-size: 0.8rem;
+      opacity: 0.9;
+      margin-top: 2px;
+      display: block;
+    }
+    .documentation {
+      background-color: #1E1E1E;
+      padding: 20px;
+      border-radius: 4px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Extra top button bar -->
+    <div class="top-button-bar">
+      <button id="playTopBtn">Play Sound</button>
+      <button id="generateTopBtn">Generate WAV</button>
+      <button id="seqPlayTopBtn">Play Sequence</button>
+      <button id="seqStopTopBtn">Stop Sequence</button>
+      <button id="seqExportTopBtn">Export Sequence</button>
+    </div>
+
+    <div class="instructions">
+      <h2>Kretz Mono Synthetic Drum Machine v1.3</h2>
+      <p>
+        This is a single-oscillator drum synthesizer with dual filters,
+        a pitch envelope, a 32-step sequencer, pitch speed control, and more.
+        Remember to <strong>click</strong> on the page to unlock audio in modern browsers!
+      </p>
+    </div>
+
+    <div class="controls">
+      <!-- Oscillator Section -->
+      <div class="control-group">
+        <h3>Oscillator</h3>
+        <div class="slider-container">
+          <label for="waveform">Waveform</label>
+          <select id="waveform">
+            <option value="sine" selected>Sine</option>
+            <option value="square">Square</option>
+            <option value="sawtooth">Sawtooth</option>
+            <option value="noise">Noise</option>
+          </select>
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Octave (C-3 → C5)</span>
+            <span id="octaveLabel">C0</span>
+          </div>
+          <input type="range" id="octaveSlider" min="0" max="8" value="3"/>
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Pitch</span>
+            <span id="pitchValue">70 Hz</span>
+            <input type="number" id="pitchInput" min="0" max="10000" value="70"/>
+          </div>
+          <input type="range" id="pitch" min="0" max="10000" value="70" />
+        </div>
+      </div>
+
+      <!-- Amplitude Envelope -->
+      <div class="control-group">
+        <h3>Amplitude Envelope</h3>
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Attack</span>
+            <span id="ampAttackValue">0 ms</span>
+            <input type="number" id="ampAttackInput" min="0" max="1000" value="0"/>
+          </div>
+          <input type="range" id="ampAttack" min="0" max="1000" value="0" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Decay</span>
+            <span id="ampDecayValue">204 ms</span>
+            <input type="number" id="ampDecayInput" min="0" max="1000" value="204"/>
+          </div>
+          <input type="range" id="ampDecay" min="0" max="1000" value="204" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Sustain</span>
+            <span id="ampSustainValue">12</span>
+            <input type="number" id="ampSustainInput" min="0" max="100" value="12"/>
+          </div>
+          <input type="range" id="ampSustain" min="0" max="100" value="12" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Release</span>
+            <span id="ampReleaseValue">557 ms</span>
+            <input type="number" id="ampReleaseInput" min="0" max="2000" value="557"/>
+          </div>
+          <input type="range" id="ampRelease" min="0" max="2000" value="557" />
+        </div>
+      </div>
+
+      <!-- Lowpass Filter -->
+      <div class="control-group">
+        <h3>Lowpass Filter</h3>
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>LP Cutoff</span>
+            <span id="cutoffValue">8186 Hz</span>
+            <input type="number" id="cutoffInput" min="20" max="10000" value="8186"/>
+          </div>
+          <input type="range" id="cutoff" min="20" max="10000" value="8186" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>LP Resonance</span>
+            <span id="resonanceValue">8</span>
+            <input type="number" id="resonanceInput" min="0" max="20" value="8"/>
+          </div>
+          <input type="range" id="resonance" min="0" max="20" value="8" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>LP Env</span>
+            <span id="filterEnvValue">86</span>
+            <input type="number" id="filterEnvInput" min="0" max="100" value="86"/>
+          </div>
+          <input type="range" id="filterEnv" min="0" max="100" value="86" />
+        </div>
+      </div>
+
+      <!-- Highpass Filter -->
+      <div class="control-group">
+        <h3>Highpass Filter</h3>
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>HP Cutoff</span>
+            <span id="hpCutoffValue">139 Hz</span>
+            <input type="number" id="hpCutoffInput" min="20" max="10000" value="139"/>
+          </div>
+          <input type="range" id="hpCutoff" min="20" max="10000" value="139" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>HP Resonance</span>
+            <span id="hpResonanceValue">0</span>
+            <input type="number" id="hpResonanceInput" min="0" max="20" value="0"/>
+          </div>
+          <input type="range" id="hpResonance" min="0" max="20" value="0" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>HP Env</span>
+            <span id="hpFilterEnvValue">0</span>
+            <input type="number" id="hpFilterEnvInput" min="0" max="100" value="0"/>
+          </div>
+          <input type="range" id="hpFilterEnv" min="0" max="100" value="0" />
+        </div>
+      </div>
+
+      <!-- Pitch Envelope -->
+      <div class="control-group">
+        <h3>Pitch Envelope</h3>
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Attack</span>
+            <span id="pitchAttackValue">0 ms</span>
+            <input type="number" id="pitchAttackInput" min="0" max="1000" value="0"/>
+          </div>
+          <input type="range" id="pitchAttack" min="0" max="1000" value="0" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Decay</span>
+            <span id="pitchDecayValue">89 ms</span>
+            <input type="number" id="pitchDecayInput" min="0" max="1000" value="89"/>
+          </div>
+          <input type="range" id="pitchDecay" min="0" max="1000" value="89" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Sustain</span>
+            <span id="pitchSustainValue">41</span>
+            <input type="number" id="pitchSustainInput" min="0" max="100" value="41"/>
+          </div>
+          <input type="range" id="pitchSustain" min="0" max="100" value="41" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Release</span>
+            <span id="pitchReleaseValue">1512 ms</span>
+            <input type="number" id="pitchReleaseInput" min="0" max="2000" value="1512"/>
+          </div>
+          <input type="range" id="pitchRelease" min="0" max="2000" value="1512" />
+        </div>
+      </div>
+
+      <!-- Pitch Speed -->
+      <div class="control-group">
+        <h3>Pitch Speed</h3>
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Pitch Speed</span>
+            <span id="pitchSpeedLabel">0%</span>
+            <input type="number" id="pitchSpeedInput" min="-100" max="100" value="0"/>
+          </div>
+          <input type="range" id="pitchSpeed" min="-100" max="100" value="0" />
+        </div>
+      </div>
+
+      <!-- Effects -->
+      <div class="control-group">
+        <h3>Effects</h3>
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Distortion</span>
+            <span id="distortionValue">9%</span>
+            <input type="number" id="distortionInput" min="0" max="100" value="9"/>
+          </div>
+          <input type="range" id="distortion" min="0" max="100" value="9" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Compressor Threshold</span>
+            <span id="compThresholdValue">-53 dB</span>
+            <input
+              type="number"
+              id="compThresholdInput"
+              min="-60"
+              max="0"
+              value="-53"
+            />
+          </div>
+          <input type="range" id="compThreshold" min="-60" max="0" value="-53" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Compressor Ratio</span>
+            <span id="compRatioValue">18:1</span>
+            <input type="number" id="compRatioInput" min="1" max="20" value="18"/>
+          </div>
+          <input type="range" id="compRatio" min="1" max="20" value="18" />
+        </div>
+
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Master Volume</span>
+            <span id="masterVolumeValue">99%</span>
+            <input
+              type="number"
+              id="masterVolumeInput"
+              min="0"
+              max="100"
+              value="99"
+            />
+          </div>
+          <input type="range" id="masterVolume" min="0" max="100" value="99" />
+        </div>
+
+        <!-- Normalize checkbox -->
+        <div class="normalize-container">
+          <label>
+            <input type="checkbox" id="normalizeCheckbox" checked />
+            Normalize to 0 dB
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sequencer Section -->
+    <div class="sequencer-container control-group">
+      <h3>32-Step Sequencer</h3>
+
+      <!-- Sequence Length -->
+      <div class="slider-container">
+        <div class="slider-label">
+          <span>Sequence Length</span>
+          <span id="seqLengthLabel">32</span>
+          <input type="number" id="seqLengthInput" min="1" max="32" value="32"/>
+        </div>
+        <input type="range" id="seqLength" min="1" max="32" value="32" />
+      </div>
+
+      <div class="slider-container">
+        <div class="slider-label">
+          <span>Tempo</span>
+          <span id="tempoValue">120 BPM</span>
+          <input type="number" id="tempoInput" min="50" max="200" value="120"/>
+        </div>
+        <input type="range" id="tempo" min="50" max="200" value="120" />
+      </div>
+
+      <div class="sequence-steps" id="sequenceSteps"></div>
+      <div style="margin-top:10px;">
+        <button id="seqPlayBtn">Play Sequence</button>
+        <button id="seqStopBtn">Stop Sequence</button>
+        <button id="seqRandomBtn">Random Sequence</button>
+        <button id="seqClearBtn">Clear Pattern</button>
+        <button id="seqExportBtn">Export Sequence</button>
+      </div>
+      <p style="font-size:0.9rem; margin-top:10px; opacity:0.8;">
+        Left-click = toggle step on/off. <br/>
+        Drag up/down on a step to adjust velocity. <br/>
+        Right-click = remove step (turn it off).
+      </p>
+    </div>
+
+    <!-- Oscilloscope Zoom Control -->
+    <div class="control-group" style="max-width:400px;">
+      <h3>Oscilloscope Zoom</h3>
+      <div class="slider-container">
+        <div class="slider-label">
+          <span>Zoom</span>
+          <span id="scopeZoomLabel">1.0x</span>
+          <input
+            type="number"
+            id="scopeZoomInput"
+            min="0.1"
+            max="10"
+            step="0.1"
+            value="1.0"
+          />
+        </div>
+        <input
+          type="range"
+          id="scopeZoom"
+          min="0.1"
+          max="10"
+          step="0.1"
+          value="1.0"
+        />
+      </div>
+    </div>
+
+    <div class="visualization">
+      <canvas id="oscilloscope"></canvas>
+    </div>
+
+    <!-- Duplicate bottom partial -->
+    <button id="generate">Generate WAV</button>
+    <button id="play">Play Sound</button>
+
+    <div class="footer">
+      © Jonas Lund 2024
+    </div>
+
+    <div class="documentation">
+      <h3>Documentation</h3>
+      <p>
+        <strong>Kretz Mono Synthetic Drum Machine</strong> is a single-oscillator drum 
+        synthesizer featuring dual filters, a pitch envelope, distortion, compression, 
+        and a 32-step sequencer. Key features:
+      </p>
+      <ul>
+        <li>
+          <strong>Oscillator Waveform:</strong> Choose Sine, Square, Sawtooth, or Noise.
+        </li>
+        <li>
+          <strong>Octave &amp; Pitch:</strong> Control base frequency of the tone.
+        </li>
+        <li>
+          <strong>Amplitude Envelope:</strong> Attack, Decay, Sustain, Release for volume shape.
+        </li>
+        <li>
+          <strong>Lowpass &amp; Highpass Filters:</strong> With respective envelopes to shape timbre.
+        </li>
+        <li>
+          <strong>Pitch Envelope &amp; Pitch Speed:</strong> Adjust pitch sweep rate and times.
+        </li>
+        <li>
+          <strong>Distortion &amp; Compression:</strong> Add character and control dynamics.
+        </li>
+        <li>
+          <strong>Sequencer (1–32 Steps):</strong> Toggle each step on/off, set velocity 0–127.
+        </li>
+        <li>
+          <strong>Random &amp; Clear Pattern:</strong> Instantly randomize or reset the sequencer.
+        </li>
+        <li>
+          <strong>Normalization &amp; WAV Export:</strong> Generate 24-bit WAV with optional normalization.
+        </li>
+      </ul>
+      <p>
+        <strong>Usage Tips:</strong><br/>
+        - Open the page in a modern browser using HTTP (not file://).<br/>
+        - Click anywhere once to unlock audio (due to browser audio policies).<br/>
+        - Use the top or bottom buttons to <em>Play Sound</em>, <em>Generate WAV</em>, 
+          <em>Play Sequence</em>, <em>Stop Sequence</em>, or <em>Export Sequence</em>.<br/>
+        - Adjust parameters with the sliders and numeric inputs. 
+        - To <em>tweak the sequence</em>, left-click steps to toggle them, right-click to remove, 
+          or drag vertically to change velocity.<br/>
+        - The <em>Clear Pattern</em> button resets all steps to off/velocity=127, while 
+          <em>Random Sequence</em> picks a random pattern.<br/>
+        - The <em>Oscilloscope Zoom</em> slider helps visualize the waveform amplitude in real time.
+      </p>
+      <p>
+        That's it — have fun exploring your own synthetic drum patterns with 
+        the Kretz Mono Synthetic Drum Machine!
+      </p>
+    </div>
+  </div>
+
+  <script>
+    class DrumSynth {
+      constructor() {
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+          sampleRate: 48000,
+        });
+
+        // Force resume on user click
+        const resumeAudio = () => {
+          if (this.audioContext.state === "suspended") {
+            this.audioContext.resume();
+          }
+          document.removeEventListener("click", resumeAudio);
+        };
+        document.addEventListener("click", resumeAudio);
+
+        this.masterGain = this.audioContext.createGain();
+        this.masterGain.connect(this.audioContext.destination);
+
+        this.analyser = this.audioContext.createAnalyser();
+        this.analyser.fftSize = 2048;
+
+        // Noise buffer
+        this.noiseBuffer = this.createNoiseBuffer(this.audioContext);
+
+        // Octave data
+        this.octaveFreqs = [
+          2.04,
+          4.08,
+          8.18,
+          16.35,
+          32.70,
+          65.41,
+          130.81,
+          261.63,
+          523.25
+        ];
+        this.octaveLabels = [
+          "C-3",
+          "C-2",
+          "C-1",
+          "C0",
+          "C1",
+          "C2",
+          "C3",
+          "C4",
+          "C5"
+        ];
+
+        // Sequencer
+        this.steps = [];
+        this.stepIndex = 0;
+        this.isPlayingSeq = false;
+        this.sequencerInterval = null;
+        this.sequenceLength = 32;
+
+        this.scopeZoom = 1.0;
+
+        this.setupUI();
+        this.setupEventListeners();
+        this.initSequencer();
+        this.drawScope();
+      }
+
+      createNoiseBuffer(context) {
+        const bufferSize = context.sampleRate * 2;
+        const buffer = context.createBuffer(1, bufferSize, context.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        return buffer;
+      }
+
+      initSequencer() {
+        const seqContainer = document.getElementById("sequenceSteps");
+        for (let i = 0; i < 32; i++) {
+          this.steps[i] = { active: false, velocity: 127 };
+          const stepDiv = document.createElement("div");
+          stepDiv.classList.add("step");
+          stepDiv.textContent = i + 1;
+
+          const velocitySpan = document.createElement("span");
+          velocitySpan.classList.add("velocity-value");
+          velocitySpan.textContent = "127";
+          stepDiv.appendChild(velocitySpan);
+
+          // left-click => toggle
+          stepDiv.addEventListener("click", (e) => {
+            e.preventDefault();
+            if (e.button === 0) {
+              const stepData = this.steps[i];
+              stepData.active = !stepData.active;
+              stepDiv.classList.toggle("active", stepData.active);
+            }
+          });
+
+          // right-click => remove step
+          stepDiv.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            this.steps[i].active = false;
+            stepDiv.classList.remove("active");
+            this.steps[i].velocity = 127;
+            velocitySpan.textContent = "127";
+          });
+
+          // mouse drag => velocity
+          let isDragging = false;
+          let lastY = 0;
+          stepDiv.addEventListener("mousedown", (ev) => {
+            if (ev.button === 0) {
+              isDragging = true;
+              lastY = ev.clientY;
+            }
+          });
+          window.addEventListener("mousemove", (ev) => {
+            if (!isDragging) return;
+            const deltaY = lastY - ev.clientY;
+            lastY = ev.clientY;
+            this.steps[i].velocity += deltaY;
+            if (this.steps[i].velocity < 0) this.steps[i].velocity = 0;
+            if (this.steps[i].velocity > 127) this.steps[i].velocity = 127;
+            velocitySpan.textContent = this.steps[i].velocity;
+          });
+          window.addEventListener("mouseup", () => {
+            isDragging = false;
+          });
+
+          seqContainer.appendChild(stepDiv);
+        }
+        this.updateSequenceLengthUI(32);
+      }
+
+      updateSequenceLengthUI(newLen) {
+        this.sequenceLength = newLen;
+        const seqContainer = document.getElementById("sequenceSteps");
+        for (let i = 0; i < 32; i++) {
+          const stepDiv = seqContainer.children[i];
+          if (i < this.sequenceLength) {
+            stepDiv.classList.remove("disabled");
+          } else {
+            stepDiv.classList.remove("active");
+            this.steps[i].active = false;
+            stepDiv.classList.add("disabled");
+          }
+        }
+      }
+
+      // Sequencer playback
+      playSequencer() {
+        if (this.isPlayingSeq) return;
+        this.isPlayingSeq = true;
+        this.stepIndex = 0;
+
+        const tempo = parseFloat(document.getElementById("tempo").value);
+        const stepDuration = (60.0 / tempo) / 4;
+
+        const seqContainer = document.getElementById("sequenceSteps");
+        const stepDivs = seqContainer.children;
+        // Clear highlight
+        for (let i = 0; i < stepDivs.length; i++) {
+          stepDivs[i].classList.remove("playing");
+        }
+
+        this.sequencerInterval = setInterval(() => {
+          // Un-highlight all
+          for (let i = 0; i < stepDivs.length; i++) {
+            stepDivs[i].classList.remove("playing");
+          }
+
+          if (this.stepIndex < this.sequenceLength) {
+            stepDivs[this.stepIndex].classList.add("playing");
+            const stepData = this.steps[this.stepIndex];
+            if (stepData.active) {
+              this.playStepWithVelocity(stepData.velocity);
+            }
+          }
+
+          this.stepIndex = (this.stepIndex + 1) % this.sequenceLength;
+        }, stepDuration * 1000);
+      }
+
+      stopSequencer() {
+        this.isPlayingSeq = false;
+        if (this.sequencerInterval) {
+          clearInterval(this.sequencerInterval);
+          this.sequencerInterval = null;
+        }
+        // remove highlight
+        const seqContainer = document.getElementById("sequenceSteps");
+        const stepDivs = seqContainer.children;
+        for (let i = 0; i < stepDivs.length; i++) {
+          stepDivs[i].classList.remove("playing");
+        }
+      }
+
+      randomSequence() {
+        for (let i = 0; i < 32; i++) {
+          const stepActive = Math.random() < 0.4;
+          this.steps[i].active = stepActive;
+          this.steps[i].velocity = 50 + Math.floor(Math.random() * 77);
+          const stepDiv = document.getElementById("sequenceSteps").children[i];
+          stepDiv.classList.toggle("active", stepActive);
+          stepDiv.querySelector(".velocity-value").textContent = this.steps[i].velocity;
+        }
+        this.updateSequenceLengthUI(this.sequenceLength);
+      }
+
+      clearSequence() {
+        const seqContainer = document.getElementById("sequenceSteps");
+        for (let i = 0; i < 32; i++) {
+          this.steps[i].active = false;
+          this.steps[i].velocity = 127;
+          const stepDiv = seqContainer.children[i];
+          stepDiv.classList.remove("active", "playing", "disabled");
+          stepDiv.querySelector(".velocity-value").textContent = "127";
+        }
+        this.updateSequenceLengthUI(this.sequenceLength);
+      }
+
+      exportSequence() {
+        const tempo = parseFloat(document.getElementById("tempo").value);
+        const stepDuration = (60.0 / tempo) / 4;
+        const totalDuration = stepDuration * this.sequenceLength + 1.0;
+
+        const offlineSampleRate = 48000;
+        const offlineContext = new OfflineAudioContext(
+          1,
+          Math.ceil(totalDuration * offlineSampleRate),
+          offlineSampleRate
+        );
+
+        let currentTime = 0;
+        for (let i = 0; i < this.sequenceLength; i++) {
+          const stepData = this.steps[i];
+          if (stepData.active) {
+            this.scheduleOfflineNote(offlineContext, stepData.velocity, currentTime);
+          }
+          currentTime += stepDuration;
+        }
+
+        offlineContext.startRendering().then((renderedBuffer) => {
+          const normalize = document.getElementById("normalizeCheckbox").checked;
+          if (normalize) {
+            this.normalizeBuffer(renderedBuffer);
+          }
+          const wavBlob = this.bufferToWave(renderedBuffer, 24);
+          const url = URL.createObjectURL(wavBlob);
+          const a = document.createElement("a");
+          a.style.display = "none";
+          a.href = url;
+          a.download = "sequence_loop.wav";
+          document.body.appendChild(a);
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+      }
+
+      scheduleOfflineNote(offlineCtx, velocity, startTime) {
+        const ampAttack = parseFloat(document.getElementById("ampAttack").value) / 1000;
+        const ampDecay = parseFloat(document.getElementById("ampDecay").value) / 1000;
+        const ampSustain = parseFloat(document.getElementById("ampSustain").value) / 100;
+        const ampRelease = parseFloat(document.getElementById("ampRelease").value) / 1000;
+
+        const filterCutoff = parseFloat(document.getElementById("cutoff").value);
+        const filterResonance = parseFloat(document.getElementById("resonance").value);
+        const filterEnvAmount = parseFloat(document.getElementById("filterEnv").value) / 100;
+
+        const hpCutoff = parseFloat(document.getElementById("hpCutoff").value);
+        const hpResonance = parseFloat(document.getElementById("hpResonance").value);
+        const hpFilterEnv = parseFloat(document.getElementById("hpFilterEnv").value) / 100;
+
+        const pitchAttack = parseFloat(document.getElementById("pitchAttack").value) / 1000;
+        const pitchDecay = parseFloat(document.getElementById("pitchDecay").value) / 1000;
+        const pitchSustain = parseFloat(document.getElementById("pitchSustain").value) / 100;
+        const pitchRelease = parseFloat(document.getElementById("pitchRelease").value) / 1000;
+        const pitchSpeed = parseFloat(document.getElementById("pitchSpeed").value);
+
+        const octaveIndex = parseInt(document.getElementById("octaveSlider").value, 10);
+        const octaveFreq = this.octaveFreqs[octaveIndex];
+        const pitchSliderVal = parseFloat(document.getElementById("pitch").value);
+        let startFreq = octaveFreq + pitchSliderVal;
+        if (startFreq > 10000) startFreq = 10000;
+
+        const distortionValue = parseFloat(document.getElementById("distortion").value);
+        const compThreshold = parseFloat(document.getElementById("compThreshold").value);
+        const compRatio = parseFloat(document.getElementById("compRatio").value);
+        const globalVolume = parseFloat(document.getElementById("masterVolume").value) / 100;
+
+        const oscType = document.getElementById("waveform").value;
+        const velocityGain = velocity / 127.0;
+
+        let source;
+        if (oscType === "noise") {
+          const noiseBuf = this.createNoiseBuffer(offlineCtx);
+          const noiseSource = offlineCtx.createBufferSource();
+          noiseSource.buffer = noiseBuf;
+          source = noiseSource;
+        } else {
+          const osc = offlineCtx.createOscillator();
+          osc.type = oscType;
+
+          let speedFactor = 1.0 - (pitchSpeed / 100);
+          if (speedFactor < 0.01) speedFactor = 0.01;
+          const aTime = pitchAttack * speedFactor;
+          const dTime = pitchDecay * speedFactor;
+          const rTime = pitchRelease * speedFactor;
+          osc.frequency.setValueAtTime(startFreq, startTime);
+          osc.frequency.linearRampToValueAtTime(startFreq, startTime + aTime);
+          const susFreq = startFreq * pitchSustain;
+          osc.frequency.linearRampToValueAtTime(susFreq, startTime + aTime + dTime);
+          osc.frequency.linearRampToValueAtTime(0, startTime + aTime + dTime + rTime);
+
+          source = osc;
+        }
+
+        // Lowpass
+        const filterLP = offlineCtx.createBiquadFilter();
+        filterLP.type = "lowpass";
+        filterLP.frequency.setValueAtTime(filterCutoff, startTime);
+        filterLP.Q.setValueAtTime(filterResonance, startTime);
+
+        filterLP.frequency.linearRampToValueAtTime(
+          filterCutoff + filterCutoff * filterEnvAmount * 4,
+          startTime + ampAttack
+        );
+        filterLP.frequency.linearRampToValueAtTime(
+          (filterCutoff + filterCutoff * filterEnvAmount * 4) * ampSustain,
+          startTime + ampAttack + ampDecay
+        );
+        filterLP.frequency.linearRampToValueAtTime(
+          filterCutoff,
+          startTime + ampAttack + ampDecay + ampRelease
+        );
+
+        // Highpass
+        const filterHP = offlineCtx.createBiquadFilter();
+        filterHP.type = "highpass";
+        filterHP.frequency.setValueAtTime(hpCutoff, startTime);
+        filterHP.Q.setValueAtTime(hpResonance, startTime);
+
+        filterHP.frequency.linearRampToValueAtTime(
+          hpCutoff + hpCutoff * hpFilterEnv * 4,
+          startTime + ampAttack
+        );
+        filterHP.frequency.linearRampToValueAtTime(
+          (hpCutoff + hpCutoff * hpFilterEnv * 4) * ampSustain,
+          startTime + ampAttack + ampDecay
+        );
+        filterHP.frequency.linearRampToValueAtTime(
+          hpCutoff,
+          startTime + ampAttack + ampDecay + ampRelease
+        );
+
+        // Distortion
+        const dist = offlineCtx.createWaveShaper();
+        dist.curve = this.makeDistortionCurve(distortionValue);
+        dist.oversample = "4x";
+
+        // compressor
+        const comp = offlineCtx.createDynamicsCompressor();
+        comp.threshold.setValueAtTime(compThreshold, startTime);
+        comp.ratio.setValueAtTime(compRatio, startTime);
+
+        // Gain
+        const gainNode = offlineCtx.createGain();
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(1, startTime + ampAttack);
+        gainNode.gain.linearRampToValueAtTime(
+          ampSustain,
+          startTime + ampAttack + ampDecay
+        );
+        gainNode.gain.linearRampToValueAtTime(
+          0,
+          startTime + ampAttack + ampDecay + ampRelease
+        );
+
+        const velocityGainNode = offlineCtx.createGain();
+        velocityGainNode.gain.setValueAtTime(globalVolume * velocityGain, startTime);
+
+        source
+          .connect(filterLP)
+          .connect(filterHP)
+          .connect(dist)
+          .connect(comp)
+          .connect(gainNode)
+          .connect(velocityGainNode)
+          .connect(offlineCtx.destination);
+
+        const noteEndTime = startTime + ampAttack + ampDecay + ampRelease + 0.5;
+        source.start(startTime);
+        source.stop(noteEndTime);
+      }
+
+      playStepWithVelocity(velocity) {
+        // Similar logic to single "play()" but scaled by velocity
+        const now = this.audioContext.currentTime;
+
+        const ampAttack = parseFloat(document.getElementById("ampAttack").value) / 1000;
+        const ampDecay = parseFloat(document.getElementById("ampDecay").value) / 1000;
+        const ampSustain = parseFloat(document.getElementById("ampSustain").value) / 100;
+        const ampRelease = parseFloat(document.getElementById("ampRelease").value) / 1000;
+
+        const filterCutoff = parseFloat(document.getElementById("cutoff").value);
+        const filterResonance = parseFloat(document.getElementById("resonance").value);
+        const filterEnvAmount = parseFloat(document.getElementById("filterEnv").value) / 100;
+
+        const hpCutoff = parseFloat(document.getElementById("hpCutoff").value);
+        const hpResonance = parseFloat(document.getElementById("hpResonance").value);
+        const hpFilterEnv = parseFloat(document.getElementById("hpFilterEnv").value) / 100;
+
+        const pitchAttack = parseFloat(document.getElementById("pitchAttack").value) / 1000;
+        const pitchDecay = parseFloat(document.getElementById("pitchDecay").value) / 1000;
+        const pitchSustain = parseFloat(document.getElementById("pitchSustain").value) / 100;
+        const pitchRelease = parseFloat(document.getElementById("pitchRelease").value) / 1000;
+        const pitchSpeed = parseFloat(document.getElementById("pitchSpeed").value);
+
+        const octaveIndex = parseInt(document.getElementById("octaveSlider").value, 10);
+        const octaveFreq = this.octaveFreqs[octaveIndex];
+        const pitchSliderVal = parseFloat(document.getElementById("pitch").value);
+        let startFreq = octaveFreq + pitchSliderVal;
+        if (startFreq > 10000) startFreq = 10000;
+
+        const distortionValue = parseFloat(document.getElementById("distortion").value);
+        const compThreshold = parseFloat(document.getElementById("compThreshold").value);
+        const compRatio = parseFloat(document.getElementById("compRatio").value);
+        const globalVolume = parseFloat(document.getElementById("masterVolume").value) / 100;
+
+        const velocityGain = velocity / 127.0;
+
+        const oscType = document.getElementById("waveform").value;
+        let source;
+        if (oscType === "noise") {
+          source = this.audioContext.createBufferSource();
+          source.buffer = this.noiseBuffer;
+        } else {
+          source = this.audioContext.createOscillator();
+          source.type = oscType;
+          this.applyPitchDownEnvelope(
+            source,
+            pitchAttack,
+            pitchDecay,
+            pitchSustain,
+            pitchRelease,
+            startFreq,
+            pitchSpeed
+          );
+        }
+
+        const filterNodeLP = this.audioContext.createBiquadFilter();
+        filterNodeLP.type = "lowpass";
+        filterNodeLP.frequency.setValueAtTime(filterCutoff, now);
+        filterNodeLP.Q.setValueAtTime(filterResonance, now);
+        this.applyEnvelope(
+          filterNodeLP.frequency,
+          ampAttack,
+          ampDecay,
+          ampSustain,
+          ampRelease,
+          filterCutoff,
+          filterCutoff + filterCutoff * filterEnvAmount * 4
+        );
+
+        const filterNodeHP = this.audioContext.createBiquadFilter();
+        filterNodeHP.type = "highpass";
+        filterNodeHP.frequency.setValueAtTime(hpCutoff, now);
+        filterNodeHP.Q.setValueAtTime(hpResonance, now);
+        this.applyEnvelope(
+          filterNodeHP.frequency,
+          ampAttack,
+          ampDecay,
+          ampSustain,
+          ampRelease,
+          hpCutoff,
+          hpCutoff + hpCutoff * hpFilterEnv * 4
+        );
+
+        const distortion = this.audioContext.createWaveShaper();
+        distortion.curve = this.makeDistortionCurve(distortionValue);
+        distortion.oversample = "4x";
+
+        const compressor = this.audioContext.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(compThreshold, now);
+        compressor.ratio.setValueAtTime(compRatio, now);
+
+        const gainNode = this.audioContext.createGain();
+        gainNode.gain.setValueAtTime(0, now);
+        this.applyEnvelope(gainNode.gain, ampAttack, ampDecay, ampSustain, ampRelease, 0, 1);
+
+        this.masterGain.gain.setValueAtTime(globalVolume, now);
+
+        const velocityGainNode = this.audioContext.createGain();
+        velocityGainNode.gain.setValueAtTime(velocityGain, now);
+
+        source
+          .connect(filterNodeLP)
+          .connect(filterNodeHP)
+          .connect(distortion)
+          .connect(compressor)
+          .connect(gainNode)
+          .connect(velocityGainNode)
+          .connect(this.analyser)
+          .connect(this.masterGain);
+
+        const totalTime = ampAttack + ampDecay + ampRelease + 0.5;
+        source.start(now);
+        source.stop(now + totalTime);
+      }
+
+      // single-drum "play" method
+      play() {
+        // same logic as above, just a direct call
+        const now = this.audioContext.currentTime;
+
+        const ampAttack = parseFloat(document.getElementById("ampAttack").value) / 1000;
+        const ampDecay = parseFloat(document.getElementById("ampDecay").value) / 1000;
+        const ampSustain = parseFloat(document.getElementById("ampSustain").value) / 100;
+        const ampRelease = parseFloat(document.getElementById("ampRelease").value) / 1000;
+
+        const filterCutoff = parseFloat(document.getElementById("cutoff").value);
+        const filterResonance = parseFloat(document.getElementById("resonance").value);
+        const filterEnvAmount = parseFloat(document.getElementById("filterEnv").value) / 100;
+
+        const hpCutoff = parseFloat(document.getElementById("hpCutoff").value);
+        const hpResonance = parseFloat(document.getElementById("hpResonance").value);
+        const hpFilterEnv = parseFloat(document.getElementById("hpFilterEnv").value) / 100;
+
+        const pitchAttack = parseFloat(document.getElementById("pitchAttack").value) / 1000;
+        const pitchDecay = parseFloat(document.getElementById("pitchDecay").value) / 1000;
+        const pitchSustain = parseFloat(document.getElementById("pitchSustain").value) / 100;
+        const pitchRelease = parseFloat(document.getElementById("pitchRelease").value) / 1000;
+        const pitchSpeed = parseFloat(document.getElementById("pitchSpeed").value);
+
+        const octaveIndex = parseInt(document.getElementById("octaveSlider").value, 10);
+        const octaveFreq = this.octaveFreqs[octaveIndex];
+        const pitchSliderVal = parseFloat(document.getElementById("pitch").value);
+        let startFreq = octaveFreq + pitchSliderVal;
+        if (startFreq > 10000) startFreq = 10000;
+
+        const distortionValue = parseFloat(document.getElementById("distortion").value);
+        const compThreshold = parseFloat(document.getElementById("compThreshold").value);
+        const compRatio = parseFloat(document.getElementById("compRatio").value);
+        const masterVolume = parseFloat(document.getElementById("masterVolume").value) / 100;
+
+        const oscType = document.getElementById("waveform").value;
+        let source;
+        if (oscType === "noise") {
+          source = this.audioContext.createBufferSource();
+          source.buffer = this.noiseBuffer;
+        } else {
+          source = this.audioContext.createOscillator();
+          source.type = oscType;
+          this.applyPitchDownEnvelope(
+            source,
+            pitchAttack,
+            pitchDecay,
+            pitchSustain,
+            pitchRelease,
+            startFreq,
+            pitchSpeed
+          );
+        }
+
+        const filterNodeLP = this.audioContext.createBiquadFilter();
+        filterNodeLP.type = "lowpass";
+        filterNodeLP.frequency.setValueAtTime(filterCutoff, now);
+        filterNodeLP.Q.setValueAtTime(filterResonance, now);
+        this.applyEnvelope(
+          filterNodeLP.frequency,
+          ampAttack,
+          ampDecay,
+          ampSustain,
+          ampRelease,
+          filterCutoff,
+          filterCutoff + filterCutoff * filterEnvAmount * 4
+        );
+
+        const filterNodeHP = this.audioContext.createBiquadFilter();
+        filterNodeHP.type = "highpass";
+        filterNodeHP.frequency.setValueAtTime(hpCutoff, now);
+        filterNodeHP.Q.setValueAtTime(hpResonance, now);
+        this.applyEnvelope(
+          filterNodeHP.frequency,
+          ampAttack,
+          ampDecay,
+          ampSustain,
+          ampRelease,
+          hpCutoff,
+          hpCutoff + hpCutoff * hpFilterEnv * 4
+        );
+
+        const distortion = this.audioContext.createWaveShaper();
+        distortion.curve = this.makeDistortionCurve(distortionValue);
+        distortion.oversample = "4x";
+
+        const compressor = this.audioContext.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(compThreshold, now);
+        compressor.ratio.setValueAtTime(compRatio, now);
+
+        const gainNode = this.audioContext.createGain();
+        gainNode.gain.setValueAtTime(0, now);
+        this.applyEnvelope(gainNode.gain, ampAttack, ampDecay, ampSustain, ampRelease, 0, 1);
+
+        this.masterGain.gain.setValueAtTime(masterVolume, now);
+
+        source
+          .connect(filterNodeLP)
+          .connect(filterNodeHP)
+          .connect(distortion)
+          .connect(compressor)
+          .connect(gainNode)
+          .connect(this.analyser)
+          .connect(this.masterGain);
+
+        const totalTime = ampAttack + ampDecay + ampRelease + 0.5;
+        source.start(now);
+        source.stop(now + totalTime);
+      }
+
+      generateWAV() {
+        // final consolidated version with no brevity
+        const offlineSampleRate = 48000;
+        const offlineContext = new OfflineAudioContext(
+          1,
+          offlineSampleRate * 5,
+          offlineSampleRate
+        );
+
+        const ampAttack = parseFloat(document.getElementById("ampAttack").value) / 1000;
+        const ampDecay = parseFloat(document.getElementById("ampDecay").value) / 1000;
+        const ampSustain = parseFloat(document.getElementById("ampSustain").value) / 100;
+        const ampRelease = parseFloat(document.getElementById("ampRelease").value) / 1000;
+
+        const filterCutoff = parseFloat(document.getElementById("cutoff").value);
+        const filterResonance = parseFloat(document.getElementById("resonance").value);
+        const filterEnvAmount = parseFloat(document.getElementById("filterEnv").value) / 100;
+
+        const hpCutoff = parseFloat(document.getElementById("hpCutoff").value);
+        const hpResonance = parseFloat(document.getElementById("hpResonance").value);
+        const hpFilterEnv = parseFloat(document.getElementById("hpFilterEnv").value) / 100;
+
+        const pitchAttack = parseFloat(document.getElementById("pitchAttack").value) / 1000;
+        const pitchDecay = parseFloat(document.getElementById("pitchDecay").value) / 1000;
+        const pitchSustain = parseFloat(document.getElementById("pitchSustain").value) / 100;
+        const pitchRelease = parseFloat(document.getElementById("pitchRelease").value) / 1000;
+        const pitchSpeed = parseFloat(document.getElementById("pitchSpeed").value);
+
+        const octaveIndex = parseInt(document.getElementById("octaveSlider").value, 10);
+        const octaveFreq = this.octaveFreqs[octaveIndex];
+        const pitchSliderVal = parseFloat(document.getElementById("pitch").value);
+        let startFreq = octaveFreq + pitchSliderVal;
+        if (startFreq > 10000) startFreq = 10000;
+
+        const distortionValue = parseFloat(document.getElementById("distortion").value);
+        const compThreshold = parseFloat(document.getElementById("compThreshold").value);
+        const compRatio = parseFloat(document.getElementById("compRatio").value);
+        const masterVolume = parseFloat(document.getElementById("masterVolume").value) / 100;
+
+        const oscType = document.getElementById("waveform").value;
+        let source;
+        if (oscType === "noise") {
+          const noiseBuf = this.createNoiseBuffer(offlineContext);
+          const noiseSource = offlineContext.createBufferSource();
+          noiseSource.buffer = noiseBuf;
+          source = noiseSource;
+        } else {
+          const osc = offlineContext.createOscillator();
+          osc.type = oscType;
+
+          let speedFactor = 1.0 - (pitchSpeed / 100);
+          if (speedFactor < 0.01) speedFactor = 0.01;
+          const aTime = pitchAttack * speedFactor;
+          const dTime = pitchDecay * speedFactor;
+          const rTime = pitchRelease * speedFactor;
+
+          osc.frequency.setValueAtTime(startFreq, 0);
+          osc.frequency.linearRampToValueAtTime(startFreq, aTime);
+          const susFreq = startFreq * pitchSustain;
+          osc.frequency.linearRampToValueAtTime(susFreq, aTime + dTime);
+          osc.frequency.linearRampToValueAtTime(0, aTime + dTime + rTime);
+
+          source = osc;
+        }
+
+        const filterLP = offlineContext.createBiquadFilter();
+        filterLP.type = "lowpass";
+        filterLP.frequency.setValueAtTime(filterCutoff, 0);
+        filterLP.Q.setValueAtTime(filterResonance, 0);
+        filterLP.frequency.linearRampToValueAtTime(
+          filterCutoff + filterCutoff * filterEnvAmount * 4,
+          ampAttack
+        );
+        filterLP.frequency.linearRampToValueAtTime(
+          (filterCutoff + filterCutoff * filterEnvAmount * 4) * ampSustain,
+          ampAttack + ampDecay
+        );
+        filterLP.frequency.linearRampToValueAtTime(
+          filterCutoff,
+          ampAttack + ampDecay + ampRelease
+        );
+
+        const filterHP = offlineContext.createBiquadFilter();
+        filterHP.type = "highpass";
+        filterHP.frequency.setValueAtTime(hpCutoff, 0);
+        filterHP.Q.setValueAtTime(hpResonance, 0);
+        filterHP.frequency.linearRampToValueAtTime(
+          hpCutoff + hpCutoff * hpFilterEnv * 4,
+          ampAttack
+        );
+        filterHP.frequency.linearRampToValueAtTime(
+          (hpCutoff + hpCutoff * hpFilterEnv * 4) * ampSustain,
+          ampAttack + ampDecay
+        );
+        filterHP.frequency.linearRampToValueAtTime(
+          hpCutoff,
+          ampAttack + ampDecay + ampRelease
+        );
+
+        const distortion = offlineContext.createWaveShaper();
+        distortion.curve = this.makeDistortionCurve(distortionValue);
+        distortion.oversample = "4x";
+
+        const compressor = offlineContext.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(compThreshold, 0);
+        compressor.ratio.setValueAtTime(compRatio, 0);
+
+        const gainNode = offlineContext.createGain();
+        gainNode.gain.setValueAtTime(0, 0);
+        gainNode.gain.linearRampToValueAtTime(1, ampAttack);
+        gainNode.gain.linearRampToValueAtTime(ampSustain, ampAttack + ampDecay);
+        gainNode.gain.linearRampToValueAtTime(0, ampAttack + ampDecay + ampRelease);
+
+        gainNode.gain.setValueAtTime(masterVolume, 0);
+
+        source
+          .connect(filterLP)
+          .connect(filterHP)
+          .connect(distortion)
+          .connect(compressor)
+          .connect(gainNode)
+          .connect(offlineContext.destination);
+
+        const totalTime = ampAttack + ampDecay + ampRelease + 1.0;
+        source.start(0);
+        source.stop(totalTime);
+
+        offlineContext.startRendering().then((renderedBuffer) => {
+          const normalize = document.getElementById("normalizeCheckbox").checked;
+          if (normalize) {
+            this.normalizeBuffer(renderedBuffer);
+          }
+          const wavBlob = this.bufferToWave(renderedBuffer, 24);
+          const url = URL.createObjectURL(wavBlob);
+          const a = document.createElement("a");
+          a.style.display = "none";
+          a.href = url;
+          a.download = "drum_sound.wav";
+          document.body.appendChild(a);
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+      }
+
+      // Envelope
+      applyEnvelope(param, attack, decay, sustain, release, startValue, peakValue) {
+        const now = this.audioContext.currentTime;
+        param.cancelScheduledValues(now);
+        param.setValueAtTime(startValue, now);
+        param.linearRampToValueAtTime(peakValue, now + attack);
+        param.linearRampToValueAtTime(peakValue * sustain, now + attack + decay);
+        param.linearRampToValueAtTime(startValue, now + attack + decay + release);
+      }
+
+      applyPitchDownEnvelope(oscNode, pAttack, pDecay, pSustain, pRelease, startFreq, pitchSpeed) {
+        let speedFactor = 1.0 - (pitchSpeed / 100);
+        if (speedFactor < 0.01) speedFactor = 0.01;
+        const now = this.audioContext.currentTime;
+
+        const aTime = pAttack * speedFactor;
+        const dTime = pDecay * speedFactor;
+        const rTime = pRelease * speedFactor;
+
+        oscNode.frequency.cancelScheduledValues(now);
+        oscNode.frequency.setValueAtTime(startFreq, now);
+        oscNode.frequency.linearRampToValueAtTime(startFreq, now + aTime);
+
+        const sustainFreq = startFreq * pSustain;
+        oscNode.frequency.linearRampToValueAtTime(sustainFreq, now + aTime + dTime);
+        oscNode.frequency.linearRampToValueAtTime(0, now + aTime + dTime + rTime);
+      }
+
+      normalizeBuffer(audioBuffer) {
+        let peak = 0;
+        const nCh = audioBuffer.numberOfChannels;
+        for (let ch = 0; ch < nCh; ch++) {
+          const data = audioBuffer.getChannelData(ch);
+          for (let i = 0; i < data.length; i++) {
+            const absVal = Math.abs(data[i]);
+            if (absVal > peak) peak = absVal;
+          }
+        }
+        if (peak < 1e-6) return;
+        const scale = 1 / peak;
+        for (let ch = 0; ch < nCh; ch++) {
+          const data = audioBuffer.getChannelData(ch);
+          for (let i = 0; i < data.length; i++) {
+            data[i] *= scale;
+          }
+        }
+      }
+
+      makeDistortionCurve(amount) {
+        const k = amount;
+        const n_samples = 44100;
+        const curve = new Float32Array(n_samples);
+        const deg = Math.PI / 180;
+        for (let i = 0; i < n_samples; i++) {
+          const x = (i * 2) / n_samples - 1;
+          curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+        }
+        return curve;
+      }
+
+      bufferToWave(abuffer, bitDepth = 16) {
+        const numOfChannels = abuffer.numberOfChannels;
+        const sampleRate = abuffer.sampleRate;
+        const numSamples = abuffer.length;
+        const bytesPerSample = bitDepth / 8;
+        const blockAlign = numOfChannels * bytesPerSample;
+        const byteRate = sampleRate * blockAlign;
+        const dataSize = numSamples * blockAlign;
+        const headerSize = 44;
+        const totalSize = headerSize + dataSize;
+
+        const interleaved = new Float32Array(numSamples * numOfChannels);
+        for (let ch = 0; ch < numOfChannels; ch++) {
+          abuffer.copyFromChannel(interleaved, ch, ch * numSamples);
+        }
+
+        const buffer = new ArrayBuffer(totalSize);
+        const view = new DataView(buffer);
+
+        this.writeString(view, 0, "RIFF");
+        view.setUint32(4, 36 + dataSize, true);
+        this.writeString(view, 8, "WAVE");
+
+        this.writeString(view, 12, "fmt ");
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, numOfChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, byteRate, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, bitDepth, true);
+
+        this.writeString(view, 36, "data");
+        view.setUint32(40, dataSize, true);
+
+        let offset = 44;
+        if (bitDepth === 24) {
+          for (let i = 0; i < interleaved.length; i++) {
+            let sample = interleaved[i];
+            if (sample > 1) sample = 1;
+            if (sample < -1) sample = -1;
+            sample = sample * 8388607.0;
+            sample = Math.round(sample);
+            view.setUint8(offset, sample & 0xff);
+            view.setUint8(offset + 1, (sample >> 8) & 0xff);
+            view.setUint8(offset + 2, (sample >> 16) & 0xff);
+            offset += 3;
+          }
+        } else {
+          for (let i = 0; i < interleaved.length; i++) {
+            let sample = interleaved[i];
+            if (sample > 1) sample = 1;
+            if (sample < -1) sample = -1;
+            sample = sample * 32767;
+            view.setInt16(offset, sample, true);
+            offset += 2;
+          }
+        }
+        return new Blob([buffer], { type: "audio/wav" });
+      }
+
+      writeString(view, offset, str) {
+        for (let i = 0; i < str.length; i++) {
+          view.setUint8(offset + i, str.charCodeAt(i));
+        }
+      }
+
+      // UI hooking
+      setupEventListeners() {
+        // top button bar
+        document.getElementById("playTopBtn").addEventListener("click", () => this.play());
+        document.getElementById("generateTopBtn").addEventListener("click", () => this.generateWAV());
+        document.getElementById("seqPlayTopBtn").addEventListener("click", () => this.playSequencer());
+        document.getElementById("seqStopTopBtn").addEventListener("click", () => this.stopSequencer());
+        document.getElementById("seqExportTopBtn").addEventListener("click", () => this.exportSequence());
+
+        // bottom partial
+        document.getElementById("play").addEventListener("click", () => this.play());
+        document.getElementById("generate").addEventListener("click", () => this.generateWAV());
+
+        document.getElementById("seqPlayBtn").addEventListener("click", () => this.playSequencer());
+        document.getElementById("seqStopBtn").addEventListener("click", () => this.stopSequencer());
+        document.getElementById("seqRandomBtn").addEventListener("click", () => this.randomSequence());
+        document.getElementById("seqClearBtn").addEventListener("click", () => this.clearSequence());
+        document.getElementById("seqExportBtn").addEventListener("click", () => this.exportSequence());
+      }
+
+      syncSliderWithNumber(sliderId, numberId, labelId, suffix = "") {
+        const slider = document.getElementById(sliderId);
+        const number = document.getElementById(numberId);
+        const label = document.getElementById(labelId);
+        if (!slider || !number || !label) return;
+
+        const setFromSlider = () => {
+          number.value = slider.value;
+          label.textContent = slider.value + suffix;
+        };
+        const setFromNumber = () => {
+          slider.value = number.value;
+          label.textContent = number.value + suffix;
+        };
+
+        slider.addEventListener("input", setFromSlider);
+        number.addEventListener("input", setFromNumber);
+        setFromSlider();
+      }
+
+      setupUI() {
+        this.syncSliderWithNumber("pitch", "pitchInput", "pitchValue", " Hz");
+        this.syncSliderWithNumber("ampAttack", "ampAttackInput", "ampAttackValue", " ms");
+        this.syncSliderWithNumber("ampDecay", "ampDecayInput", "ampDecayValue", " ms");
+        this.syncSliderWithNumber("ampSustain", "ampSustainInput", "ampSustainValue", "");
+        this.syncSliderWithNumber("ampRelease", "ampReleaseInput", "ampReleaseValue", " ms");
+
+        this.syncSliderWithNumber("cutoff", "cutoffInput", "cutoffValue", " Hz");
+        this.syncSliderWithNumber("resonance", "resonanceInput", "resonanceValue", "");
+        this.syncSliderWithNumber("filterEnv", "filterEnvInput", "filterEnvValue", "");
+
+        this.syncSliderWithNumber("hpCutoff", "hpCutoffInput", "hpCutoffValue", " Hz");
+        this.syncSliderWithNumber("hpResonance", "hpResonanceInput", "hpResonanceValue", "");
+        this.syncSliderWithNumber("hpFilterEnv", "hpFilterEnvInput", "hpFilterEnvValue", "");
+
+        this.syncSliderWithNumber("pitchAttack", "pitchAttackInput", "pitchAttackValue", " ms");
+        this.syncSliderWithNumber("pitchDecay", "pitchDecayInput", "pitchDecayValue", " ms");
+        this.syncSliderWithNumber("pitchSustain", "pitchSustainInput", "pitchSustainValue", "");
+        this.syncSliderWithNumber("pitchRelease", "pitchReleaseInput", "pitchReleaseValue", " ms");
+        this.syncSliderWithNumber("pitchSpeed", "pitchSpeedInput", "pitchSpeedLabel", "%");
+
+        this.syncSliderWithNumber("distortion", "distortionInput", "distortionValue", "%");
+        this.syncSliderWithNumber("compThreshold", "compThresholdInput", "compThresholdValue", " dB");
+        this.syncSliderWithNumber("compRatio", "compRatioInput", "compRatioValue", ":1");
+        this.syncSliderWithNumber("masterVolume", "masterVolumeInput", "masterVolumeValue", "%");
+
+        this.syncSliderWithNumber("tempo", "tempoInput", "tempoValue", " BPM");
+
+        this.syncSliderWithNumber("seqLength", "seqLengthInput", "seqLengthLabel", "");
+        const seqLengthSlider = document.getElementById("seqLength");
+        seqLengthSlider.addEventListener("input", () => {
+          const val = parseInt(seqLengthSlider.value, 10);
+          this.updateSequenceLengthUI(val);
+        });
+        const seqLengthInput = document.getElementById("seqLengthInput");
+        seqLengthInput.addEventListener("input", () => {
+          const val = parseInt(seqLengthInput.value, 10);
+          this.updateSequenceLengthUI(val);
+        });
+
+        this.syncSliderWithNumber("scopeZoom", "scopeZoomInput", "scopeZoomLabel", "x");
+
+        // Octave
+        const octaveSlider = document.getElementById("octaveSlider");
+        const octaveLabel = document.getElementById("octaveLabel");
+        if (octaveSlider && octaveLabel) {
+          const doUpdate = () => {
+            const idx = parseInt(octaveSlider.value, 10);
+            octaveLabel.textContent = this.octaveLabels[idx];
+          };
+          octaveSlider.addEventListener("input", doUpdate);
+          doUpdate();
+        }
+      }
+
+      drawScope() {
+        const canvas = document.getElementById("oscilloscope");
+        const canvasCtx = canvas.getContext("2d");
+        const bufferLength = this.analyser.fftSize;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const draw = () => {
+          requestAnimationFrame(draw);
+          this.analyser.getByteTimeDomainData(dataArray);
+
+          const scopeZoom = parseFloat(document.getElementById("scopeZoom").value);
+          canvasCtx.fillStyle = "#2E2E2E";
+          canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+          canvasCtx.lineWidth = 2;
+          canvasCtx.strokeStyle = "#BB86FC";
+          canvasCtx.beginPath();
+
+          let sliceWidth = canvas.width / bufferLength;
+          let x = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            let v = dataArray[i] / 128.0;
+            let y = (v - 1) * (canvas.height / 2) * scopeZoom + (canvas.height / 2);
+
+            if (i === 0) {
+              canvasCtx.moveTo(x, y);
+            } else {
+              canvasCtx.lineTo(x, y);
+            }
+            x += sliceWidth;
+          }
+          canvasCtx.stroke();
+        };
+        draw();
+      }
+    }
+
+    // Instantiate on window load
+    window.addEventListener("load", () => {
+      new DrumSynth();
+    });
+  </script>
+</body>
+</html>
